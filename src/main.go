@@ -31,14 +31,18 @@ func main() {
 	query, _ := reader.ReadString('\n')
 	query = strings.TrimSpace(query)
 
-	if query == "" { return }
+	if query == "" {
+		return
+	}
 
 	fmt.Printf("[*] Querying IMDb Servers for '%s'...\n", query)
 	firstChar := string(strings.ToLower(query)[0])
 	apiURL := fmt.Sprintf("https://v3.sg.media-imdb.com/suggestion/%s/%s.json", firstChar, url.QueryEscape(strings.ToLower(query)))
 
 	resp, err := http.Get(apiURL)
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 	defer resp.Body.Close()
 
 	var searchData IMDbSearchResult
@@ -51,24 +55,27 @@ func main() {
 
 	match := searchData.D[0]
 	contentType := "Movie"
-	if strings.Contains(match.Q, "TV") { contentType = "TV Show" }
+	if strings.Contains(match.Q, "TV") {
+		contentType = "TV Show"
+	}
 
 	fmt.Printf("[+] Found: %s (%d) [%s]\n", match.Title, match.Year, contentType)
 
 	var finalURL string
+	const streamSite = "https://vidsrc.to"
+
 	if contentType == "Movie" {
-		finalURL = fmt.Sprintf("https://vidsrc.xyz/embed/movie/%s", match.ID)
+		finalURL = fmt.Sprintf("%s/embed/movie/%s", streamSite, match.ID)
 	} else {
 		fmt.Print("Enter Season: ")
 		s, _ := reader.ReadString('\n')
 		fmt.Print("Enter Episode: ")
 		e, _ := reader.ReadString('\n')
-		finalURL = fmt.Sprintf("https://vidsrc.xyz/embed/tv/%s/%s/%s", match.ID, strings.TrimSpace(s), strings.TrimSpace(e))
+		finalURL = fmt.Sprintf("%s/embed/tv/%s/%s/%s", streamSite, match.ID, strings.TrimSpace(s), strings.TrimSpace(e))
 	}
 
 	fmt.Printf("[*] Launching Browser with: %s\n", finalURL)
-	
-	// Tarayıcıyı açmak için OS'e göre komut
+
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "linux":
@@ -80,9 +87,9 @@ func main() {
 	}
 
 	if err := cmd.Start(); err != nil {
-		fmt.Printf("[-] Error launching browser: %v\n", err)
+		fmt.Printf("[-] Error: %v\n", err)
 	} else {
-		fmt.Println("[+] Overlord task completed successfully. Stay Tuned.")
+		fmt.Println("[+] Overlord task completed successfully.")
 	}
 }
 
