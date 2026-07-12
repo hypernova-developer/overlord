@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -23,10 +24,9 @@ type IMDbSearchResult struct {
 
 func main() {
 	fmt.Println("👑 OVERLORD v1.0 — The Ultimate CLI Stream Overlord")
-	fmt.Println("--------------------------------------------------")
 
 	var query string
-	survey.AskOne(&survey.Input{Message: "Enter Movie or TV Show Name:"}, &query)
+	survey.AskOne(&survey.Input{Message: "Search:"}, &query)
 
 	apiURL := fmt.Sprintf("https://v3.sg.media-imdb.com/suggestion/%s/%s.json", string(strings.ToLower(query)[0]), url.QueryEscape(strings.ToLower(query)))
 	resp, _ := http.Get(apiURL)
@@ -35,18 +35,13 @@ func main() {
 	var searchData IMDbSearchResult
 	json.NewDecoder(resp.Body).Decode(&searchData)
 
-	if len(searchData.D) == 0 {
-		fmt.Println("[-] No results found!")
-		return
-	}
-
 	var options []string
 	for _, item := range searchData.D {
 		options = append(options, fmt.Sprintf("%s (%d) [%s]", item.Title, item.Year, item.Q))
 	}
 
 	var choice string
-	survey.AskOne(&survey.Select{Message: "Select Title:", Options: options}, &choice)
+	survey.AskOne(&survey.Select{Message: "Select:", Options: options}, &choice)
 
 	var selectedID string
 	var isTV bool
@@ -60,28 +55,30 @@ func main() {
 		}
 	}
 
-	const streamSite = "https://vidsrc.to"
-	var finalURL string
+	finalURL := fmt.Sprintf("https://vidsrc.to/embed/movie/%s", selectedID)
+	if isTV {
+		var seasons []string
+		for i := 1; i <= 20; i++ {
+			seasons = append(seasons, strconv.Itoa(i))
+		}
 
-	if !isTV {
-		finalURL = fmt.Sprintf("%s/embed/movie/%s", streamSite, selectedID)
-	} else {
-		var s, e string
-		survey.AskOne(&survey.Input{Message: "Season Number:"}, &s)
-		survey.AskOne(&survey.Input{Message: "Episode Number:"}, &e)
-		finalURL = fmt.Sprintf("%s/embed/tv/%s/%s/%s", streamSite, selectedID, s, e)
+		var s string
+		survey.AskOne(&survey.Select{Message: "Select Season:", Options: seasons}, &s)
+
+		var episodes []string
+		for i := 1; i <= 50; i++ {
+			episodes = append(episodes, strconv.Itoa(i))
+		}
+
+		var e string
+		survey.AskOne(&survey.Select{Message: "Select Episode:", Options: episodes}, &e)
+
+		finalURL = fmt.Sprintf("https://vidsrc.to/embed/tv/%s/%s/%s", selectedID, s, e)
 	}
 
-	fmt.Printf("[*] Launching: %s\n", finalURL)
-
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "linux":
-		cmd = exec.Command("xdg-open", finalURL)
-	case "windows":
+	cmd := exec.Command("xdg-open", finalURL)
+	if runtime.GOOS == "windows" {
 		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", finalURL)
-	case "darwin":
-		cmd = exec.Command("open", finalURL)
 	}
 	cmd.Start()
 }
