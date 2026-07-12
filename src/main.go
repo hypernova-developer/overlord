@@ -1,15 +1,15 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/AlecAivazis/survey/v2"
 )
 
 type IMDbSearchResult struct {
@@ -25,24 +25,11 @@ func main() {
 	fmt.Println("👑 OVERLORD v1.0 — The Ultimate CLI Stream Overlord")
 	fmt.Println("--------------------------------------------------")
 
-	reader := bufio.NewReader(os.Stdin)
+	var query string
+	survey.AskOne(&survey.Input{Message: "Enter Movie or TV Show Name:"}, &query)
 
-	fmt.Print("Enter Movie or TV Show Name: ")
-	query, _ := reader.ReadString('\n')
-	query = strings.TrimSpace(query)
-
-	if query == "" {
-		return
-	}
-
-	fmt.Printf("[*] Querying IMDb Servers for '%s'...\n", query)
-	firstChar := string(strings.ToLower(query)[0])
-	apiURL := fmt.Sprintf("https://v3.sg.media-imdb.com/suggestion/%s/%s.json", firstChar, url.QueryEscape(strings.ToLower(query)))
-
-	resp, err := http.Get(apiURL)
-	if err != nil {
-		return
-	}
+	apiURL := fmt.Sprintf("https://v3.sg.media-imdb.com/suggestion/%s/%s.json", string(strings.ToLower(query)[0]), url.QueryEscape(strings.ToLower(query)))
+	resp, _ := http.Get(apiURL)
 	defer resp.Body.Close()
 
 	var searchData IMDbSearchResult
@@ -53,28 +40,39 @@ func main() {
 		return
 	}
 
-	match := searchData.D[0]
-	contentType := "Movie"
-	if strings.Contains(match.Q, "TV") {
-		contentType = "TV Show"
+	var options []string
+	for _, item := range searchData.D {
+		options = append(options, fmt.Sprintf("%s (%d) [%s]", item.Title, item.Year, item.Q))
 	}
 
-	fmt.Printf("[+] Found: %s (%d) [%s]\n", match.Title, match.Year, contentType)
+	var choice string
+	survey.AskOne(&survey.Select{Message: "Select Title:", Options: options}, &choice)
 
-	var finalURL string
+	var selectedID string
+	var isTV bool
+	for _, item := range searchData.D {
+		if strings.Contains(choice, item.Title) {
+			selectedID = item.ID
+			if strings.Contains(item.Q, "TV") {
+				isTV = true
+			}
+			break
+		}
+	}
+
 	const streamSite = "https://vidsrc.to"
+	var finalURL string
 
-	if contentType == "Movie" {
-		finalURL = fmt.Sprintf("%s/embed/movie/%s", streamSite, match.ID)
+	if !isTV {
+		finalURL = fmt.Sprintf("%s/embed/movie/%s", streamSite, selectedID)
 	} else {
-		fmt.Print("Enter Season: ")
-		s, _ := reader.ReadString('\n')
-		fmt.Print("Enter Episode: ")
-		e, _ := reader.ReadString('\n')
-		finalURL = fmt.Sprintf("%s/embed/tv/%s/%s/%s", streamSite, match.ID, strings.TrimSpace(s), strings.TrimSpace(e))
+		var s, e string
+		survey.AskOne(&survey.Input{Message: "Season Number:"}, &s)
+		survey.AskOne(&survey.Input{Message: "Episode Number:"}, &e)
+		finalURL = fmt.Sprintf("%s/embed/tv/%s/%s/%s", streamSite, selectedID, s, e)
 	}
 
-	fmt.Printf("[*] Launching Browser with: %s\n", finalURL)
+	fmt.Printf("[*] Launching: %s\n", finalURL)
 
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -85,11 +83,6 @@ func main() {
 	case "darwin":
 		cmd = exec.Command("open", finalURL)
 	}
-
-	if err := cmd.Start(); err != nil {
-		fmt.Printf("[-] Error: %v\n", err)
-	} else {
-		fmt.Println("[+] Overlord task completed successfully.")
-	}
+	cmd.Start()
 }
 
