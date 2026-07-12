@@ -22,7 +22,7 @@ type IMDbSearchResult struct {
 }
 
 func main() {
-	fmt.Println("👑 OVERLORD v3.2.5-BETA — The Ultimate Stream Controller by hypernova-developer")
+	fmt.Println("👑 OVERLORD v3.2.7-BETA — The Ultimate Stream Controller")
 
 	var query string
 	survey.AskOne(&survey.Input{Message: "Search for movie or series:"}, &query)
@@ -65,20 +65,23 @@ func main() {
 		var s, e string
 		survey.AskOne(&survey.Input{Message: "Season (e.g., 1):"}, &s)
 		survey.AskOne(&survey.Input{Message: "Episode (e.g., 1):"}, &e)
+		
+		if s == "" || e == "" {
+			fmt.Println("[-] Selection cancelled or invalid.")
+			return
+		}
 		launch(fmt.Sprintf("https://vidsrc.to/embed/tv/%s/%s/%s", selectedID, s, e))
 	}
 }
 
-func launch(url string) {
-	fmt.Printf("[+] Launching stream: %s\n", url)
+func launch(urlStr string) {
+	fmt.Printf("[+] Launching: %s\n", urlStr)
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "linux":
-		cmd = exec.Command("xdg-open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = exec.Command("xdg-open", urlStr)
 	default:
-		cmd = exec.Command("open", url)
+		cmd = exec.Command("open", urlStr)
 	}
 	cmd.Start()
 }
