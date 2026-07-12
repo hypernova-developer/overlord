@@ -22,7 +22,7 @@ type IMDbSearchResult struct {
 }
 
 func main() {
-	fmt.Println("👑 OVERLORD v3.2.2-BETA — The Ultimate Stream Controller")
+	fmt.Println("👑 OVERLORD v3.2.5-BETA — The Ultimate Stream Controller by hypernova-developer")
 
 	var query string
 	survey.AskOne(&survey.Input{Message: "Search for movie or series:"}, &query)
