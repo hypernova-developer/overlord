@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 )
 
@@ -30,19 +31,14 @@ func main() {
 	query, _ := reader.ReadString('\n')
 	query = strings.TrimSpace(query)
 
-	if query == "" {
-		return
-	}
+	if query == "" { return }
 
 	fmt.Printf("[*] Querying IMDb Servers for '%s'...\n", query)
 	firstChar := string(strings.ToLower(query)[0])
 	apiURL := fmt.Sprintf("https://v3.sg.media-imdb.com/suggestion/%s/%s.json", firstChar, url.QueryEscape(strings.ToLower(query)))
 
 	resp, err := http.Get(apiURL)
-	if err != nil {
-		fmt.Printf("[-] Network Error: %v\n", err)
-		return
-	}
+	if err != nil { return }
 	defer resp.Body.Close()
 
 	var searchData IMDbSearchResult
@@ -55,9 +51,7 @@ func main() {
 
 	match := searchData.D[0]
 	contentType := "Movie"
-	if strings.Contains(match.Q, "TV") {
-		contentType = "TV Show"
-	}
+	if strings.Contains(match.Q, "TV") { contentType = "TV Show" }
 
 	fmt.Printf("[+] Found: %s (%d) [%s]\n", match.Title, match.Year, contentType)
 
@@ -72,15 +66,23 @@ func main() {
 		finalURL = fmt.Sprintf("https://vidsrc.xyz/embed/tv/%s/%s/%s", match.ID, strings.TrimSpace(s), strings.TrimSpace(e))
 	}
 
-	fmt.Printf("[*] Launching VLC via yt-dlp: %s\n", finalURL)
+	fmt.Printf("[*] Launching Browser with: %s\n", finalURL)
 	
-	// VLC'yi yt-dlp ile entegre bir şekilde çalıştırıyoruz.
-	// --meta-title ile VLC'ye dosya değil, bir yayın olduğu bilgisini veriyoruz.
-	cmd := exec.Command("vlc", "--meta-title", "Overlord Stream", finalURL)
-	
-	err = cmd.Start()
-	if err != nil {
-		fmt.Printf("[-] Error: %v. Make sure yt-dlp is installed and in your PATH.\n", err)
+	// Tarayıcıyı açmak için OS'e göre komut
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "linux":
+		cmd = exec.Command("xdg-open", finalURL)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", finalURL)
+	case "darwin":
+		cmd = exec.Command("open", finalURL)
+	}
+
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("[-] Error launching browser: %v\n", err)
+	} else {
+		fmt.Println("[+] Overlord task completed successfully. Stay Tuned.")
 	}
 }
 
